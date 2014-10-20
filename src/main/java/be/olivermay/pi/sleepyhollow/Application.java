@@ -1,5 +1,6 @@
 package be.olivermay.pi.sleepyhollow;
 
+import com.pi4j.component.relay.RelayState;
 import com.pi4j.component.switches.SwitchListener;
 import com.pi4j.component.switches.SwitchState;
 import com.pi4j.component.switches.SwitchStateChangeEvent;
@@ -8,6 +9,11 @@ import com.pi4j.device.piface.PiFaceRelay;
 import com.pi4j.device.piface.PiFaceSwitch;
 import com.pi4j.device.piface.impl.PiFaceDevice;
 import com.pi4j.io.gpio.GpioPinDigitalInput;
+import com.pi4j.io.gpio.PinMode;
+import com.pi4j.io.gpio.PinPullResistance;
+import com.pi4j.io.gpio.PinState;
+import com.pi4j.io.gpio.event.GpioPinDigitalStateChangeEvent;
+import com.pi4j.io.gpio.event.GpioPinListenerDigital;
 import com.pi4j.wiringpi.Spi;
 
 import java.io.IOException;
@@ -21,40 +27,42 @@ import java.io.IOException;
  */
 public class Application {
 
+    private static final int INPUT_PIN = 5;
+
     public static void main(String[] args) throws IOException, InterruptedException {
         System.out.println("Starting!");
 
-
         final PiFace piface = new PiFaceDevice(PiFace.DEFAULT_ADDRESS, Spi.CHANNEL_0);
 
-        piface.getSwitch(PiFaceSwitch.S1).addListener(new SwitchListener() {
+        piface.getInputPin(INPUT_PIN).setMode(PinMode.DIGITAL_INPUT);
 
-            ReleaseRunnable release = new ReleaseRunnable(piface);
-            Thread thread = null;
-
-            @Override
-            public void onStateChange(SwitchStateChangeEvent event) {
-
-                if (event.getNewState() == SwitchState.OFF) {
-                    piface.getOutputPin(7).high();
-                    piface.getRelay(PiFaceRelay.K0).close(); // turn on relay
-
-                    synchronized (this) {
-
-                        if (thread != null && thread.isAlive()) {
-                            release.postpone();
-                        } else {
-                            thread = new Thread(release);
-                            thread.start();
-                        }
-                    }
-//                    System.out.println("[SWITCH S1 PRESSED ] Turn RELAY-K0 <ON>");
-                } else {
-//                    System.out.println("[SWITCH S1 RELEASED] Turn RELAY-K0 <OFF>");
+        for (int i = 5; i <= 5; i++) {
+            piface.getInputPin(i).setMode(PinMode.DIGITAL_INPUT);
+//            System.out.println(piface.getInputPin(i).getPullResistance());
+            //piface.getInputPin(i).setPullResistance(PinPullResistance.OFF);
+            final int port = i;
+            piface.getInputPin(i).addListener(new GpioPinListenerDigital() {
+                @Override
+                public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
+                    System.out.println("Input on pin " + port + "changed to " + event.getState());
+                    piface.getOutputPin(7).setState(event.getState());
                 }
-            }
-        });
+            });
+        }
 
+//        int i = 0;
+//
+       while (true) {
+            System.out.println("Input: " + piface.getInputPin(INPUT_PIN).getState());
+            Thread.sleep(50);
+//            if (i++ % 100 == 0) {
+//                piface.getOutputPin(7).setState(PinState.HIGH);
+//            }
+//            if (i % 100 == 50) {
+//                piface.getOutputPin(7).setState(PinState.LOW);
+//            }
+        }
+//
     }
 
 }
